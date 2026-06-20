@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Journal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body style="margin:0; background:#b8b8b8;">
+<div id="tj-root"></div>
+<style>
+  #tj-root {
+    --bg: #b8b8b8;
+    --bg-elevated: #c4c4c4;
+    --cell-bg: #c2c2c2;
+    --cell-bg-adjacent: #aeaeae;
+    --cell-bg-hover: #cccccc;
+    --border: #999999;
+    --border-light: #888888;
+    --text: #000000;
+    --text-muted: #3a3a3a;
+    --text-faint: #5a5a5a;
+    --today: #c0392b;
+    --win: #1d7a45;
+    --loss: #b91c1c;
+    --be: #555555;
+    --asia: #8a5a00;
+    --london: #1d4ed8;
+    --ny: #6b21a8;
+    --radius: 6px;
+    font-family: -apple-system, "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 28px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    position: relative;
+    -webkit-font-smoothing: antialiased;
+  }
+  #tj-root * { box-sizing: border-box; }
+  #tj-root button { font-family: inherit; cursor: pointer; }
+
+  .tj-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 4px; }
+  .tj-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
+  .tj-subtitle { font-size: 12.5px; color: var(--text-muted); margin: 4px 0 0; }
+  .tj-actions { display: flex; gap: 8px; align-items: center; }
+  .tj-btn-ghost {
+    background: transparent; border: 1px solid var(--border-light); color: var(--text-muted);
+    border-radius: var(--radius); padding: 6px 10px; font-size: 12px; transition: background .15s, color .15s;
+  }
+  .tj-btn-ghost:hover { background: var(--bg-elevated); color: var(--text); }
+
+  .tj-nav { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 4px; }
+  .tj-month-label { font-size: 16px; font-weight: 600; }
+  .tj-nav-controls { display: flex; align-items: center; gap: 6px; }
+  .tj-nav-btn {
+    background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text);
+    width: 28px; height: 28px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center;
+    font-size: 14px; transition: background .15s;
+  }
+  .tj-nav-btn:hover { background: #aaaaaa; }
+  .tj-today-btn {
+    background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius); padding: 5px 12px; font-size: 12.5px; margin-left: 6px;
+  }
+  .tj-today-btn:hover { background: #aaaaaa; }
+
+  .tj-stats { display: flex; gap: 22px; font-size: 12.5px; color: var(--text-muted); margin: 10px 2px 16px; flex-wrap: wrap; }
+  .tj-stats b { color: var(--text); font-weight: 600; }
+  .tj-stats .pos { color: var(--win); font-weight: 600; }
+  .tj-stats .neg { color: var(--loss); font-weight: 600; }
+
+  .tj-grid { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .tj-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--border); }
+  .tj-weekday { padding: 8px 10px; font-size: 11.5px; color: var(--text-muted); font-weight: 500; }
+  .tj-rows { display: grid; }
+  .tj-row { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .tj-row + .tj-row { border-top: 1px solid var(--border); }
+
+  .tj-cell {
+    background: var(--cell-bg); border-right: 1px solid var(--border);
+    min-height: 96px; padding: 8px; position: relative; cursor: pointer;
+    transition: background .12s; display: flex; flex-direction: column;
+  }
+  .tj-row > .tj-cell:last-child { border-right: none; }
+  .tj-cell:hover { background: var(--cell-bg-hover); }
+  .tj-cell.adjacent { background: var(--cell-bg-adjacent); }
+  .tj-cell.adjacent .tj-daynum { color: var(--text-faint); }
+
+  .tj-daynum-row { display: flex; justify-content: flex-end; }
+  .tj-daynum {
+    font-size: 13px; color: var(--text-muted); width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  }
+  .tj-cell.today .tj-daynum { background: var(--today); color: #fff; font-weight: 600; }
+
+  .tj-chips { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; flex: 1; }
+  .tj-chip {
+    display: flex; align-items: center; gap: 4px; font-size: 10.5px; line-height: 1;
+    background: var(--bg-elevated); border-radius: 4px; padding: 3px 5px; color: var(--text);
+  }
+  .tj-chip .sess { width: 13px; height: 13px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 8.5px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .tj-chip .sess.asia { background: var(--asia); }
+  .tj-chip .sess.london { background: var(--london); color: #fff; }
+  .tj-chip .sess.ny { background: var(--ny); color: #fff; }
+  .tj-chip .dir { flex-shrink: 0; color: var(--text-muted); font-size: 10px; }
+  .tj-chip .pair { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+  .tj-chip .outc { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .tj-chip .outc.win { background: var(--win); }
+  .tj-chip .outc.loss { background: var(--loss); }
+  .tj-chip .outc.be { background: var(--be); }
+  .tj-more { font-size: 10px; color: var(--text-faint); padding: 1px 5px; }
+
+  .tj-daynet { font-size: 10.5px; font-weight: 600; margin-top: 4px; }
+  .tj-daynet.pos { color: var(--win); }
+  .tj-daynet.neg { color: var(--loss); }
+
+  /* overlay + panel */
+  .tj-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 9998;
+    opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  .tj-overlay.open { opacity: 1; pointer-events: auto; }
+  .tj-panel {
+    position: fixed; top: 0; right: 0; height: 100%; width: 400px; max-width: 92vw;
+    background: var(--bg-elevated); border-left: 1px solid var(--border);
+    z-index: 9999; transform: translateX(100%); transition: transform .22s ease;
+    display: flex; flex-direction: column; font-family: inherit; color: var(--text);
+  }
+  .tj-panel.open { transform: translateX(0); }
+  .tj-panel-head { padding: 18px 18px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0; }
+  .tj-panel-head h3 { margin: 0; font-size: 15.5px; font-weight: 600; }
+  .tj-panel-head p { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
+  .tj-close { background: transparent; border: none; color: var(--text-muted); font-size: 20px; line-height: 1; padding: 0 4px; }
+  .tj-close:hover { color: var(--text); }
+  .tj-panel-body { padding: 16px 18px 28px; overflow-y: auto; flex: 1; }
+
+  .tj-trade-card { background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 12px; margin-bottom: 10px; }
+  .tj-trade-card-top { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+  .tj-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: .02em; }
+  .tj-badge.asia { background: rgba(255,255,255,.55); color: var(--asia); }
+  .tj-badge.london { background: rgba(255,255,255,.55); color: var(--london); }
+  .tj-badge.ny { background: rgba(255,255,255,.55); color: var(--ny); }
+  .tj-badge.win { background: rgba(255,255,255,.55); color: var(--win); }
+  .tj-badge.loss { background: rgba(255,255,255,.55); color: var(--loss); }
+  .tj-badge.be { background: rgba(255,255,255,.55); color: var(--be); }
+  .tj-pair-name { font-weight: 600; font-size: 13.5px; flex: 1; }
+  .tj-dir-arrow { font-size: 13px; color: var(--text-muted); }
+  .tj-trade-card .rr { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .tj-trade-card .notes { font-size: 12px; color: var(--text-muted); white-space: pre-wrap; margin-bottom: 6px; }
+  .tj-thumbs { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .tj-thumb { width: 52px; height: 52px; border-radius: 5px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; }
+  .tj-card-actions { display: flex; gap: 6px; }
+  .tj-mini-btn { background: transparent; border: 1px solid var(--border-light); color: var(--text-muted); border-radius: 5px; padding: 4px 9px; font-size: 11.5px; }
+  .tj-mini-btn:hover { color: var(--text); background: #cfcfcf; }
+  .tj-mini-btn.danger:hover { color: var(--loss); border-color: var(--loss); }
+
+  .tj-add-btn {
+    width: 100%; background: transparent; border: 1px dashed var(--border-light); color: var(--text-muted);
+    border-radius: 7px; padding: 10px; font-size: 13px; margin-top: 4px;
+  }
+  .tj-add-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+  .tj-form-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .tj-form-row3 .tj-form-group { margin-bottom: 14px; }
+  @media (max-width: 420px) { .tj-form-row3 { grid-template-columns: 1fr; gap: 0; } }
+
+  .tj-form-group { margin-bottom: 14px; }
+  .tj-label { font-size: 11.5px; color: var(--text-muted); margin-bottom: 6px; display: block; font-weight: 500; }
+  .tj-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tj-pill {
+    background: var(--bg); border: 1px solid var(--border-light); color: var(--text-muted);
+    border-radius: 16px; padding: 5px 12px; font-size: 12px; transition: all .12s;
+  }
+  .tj-pill:hover { border-color: var(--text-muted); }
+  .tj-pill.active.session-asia { background: var(--asia); border-color: var(--asia); color: #fff; }
+  .tj-pill.active.session-london { background: var(--london); border-color: var(--london); color: #fff; }
+  .tj-pill.active.session-ny { background: var(--ny); border-color: var(--ny); color: #fff; }
+  .tj-pill.active.dir-buy { background: var(--win); border-color: var(--win); color: #fff; }
+  .tj-pill.active.dir-sell { background: var(--loss); border-color: var(--loss); color: #fff; }
+  .tj-pill.active.outc-win { background: var(--win); border-color: var(--win); color: #fff; }
+  .tj-pill.active.outc-loss { background: var(--loss); border-color: var(--loss); color: #fff; }
+  .tj-pill.active.outc-be { background: var(--be); border-color: var(--be); color: #fff; }
+
+  .tj-input, .tj-textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border-light); color: var(--text);
+    border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit;
+  }
+  .tj-input:focus, .tj-textarea:focus { outline: none; border-color: var(--text-muted); }
+  .tj-textarea { resize: vertical; min-height: 64px; }
+
+  .tj-imgrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .tj-imgwrap { position: relative; width: 56px; height: 56px; }
+  .tj-imgwrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; border: 1px solid var(--border); }
+  .tj-imgwrap .rm { position: absolute; top: -6px; right: -6px; background: var(--loss); color: #fff; border: none; width: 17px; height: 17px; border-radius: 50%; font-size: 11px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+  .tj-upload-btn { width: 56px; height: 56px; border-radius: 5px; border: 1px dashed var(--border-light); color: var(--text-faint); background: transparent; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+  .tj-upload-btn:hover { color: var(--text-muted); border-color: var(--text-muted); }
+
+  .tj-form-actions { display: flex; gap: 8px; padding-top: 8px; margin-top: 6px; }
+  .tj-save-btn { flex: 1; background: #1a1a1a; color: #fff; border: none; border-radius: 6px; padding: 10px; font-size: 13px; font-weight: 600; }
+  .tj-save-btn:hover { background: #000; }
+  .tj-cancel-btn { background: transparent; border: 1px solid var(--border-light); color: var(--text-muted); border-radius: 6px; padding: 10px 14px; font-size: 13px; }
+  .tj-cancel-btn:hover { color: var(--text); }
+
+  .tj-empty { font-size: 12.5px; color: var(--text-faint); padding: 10px 0 16px; }
+
+  .tj-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 10001; display: flex; align-items: center; justify-content: center; }
+  .tj-lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 6px; }
+  .tj-lightbox-close { position: absolute; top: 18px; right: 22px; background: none; border: none; color: #fff; font-size: 28px; }
+
+  .tj-loading { padding: 60px 0; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+  .tj-confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 10002; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .tj-confirm-box { background: #b8b8b8; border: 1px solid #999; border-radius: 8px; padding: 18px; width: 100%; max-width: 320px; font-family: -apple-system, "Inter", "Segoe UI", Helvetica, Arial, sans-serif; color: #000; }
+  .tj-confirm-title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 4px; color: #000; }
+  .tj-confirm-body { font-size: 13px; font-weight: 500; color: #333; margin-bottom: 16px; }
+  .tj-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .tj-confirm-actions .tj-mini-btn { background: #c8c8c8; border: 1px solid #999; color: #000; }
+  .tj-confirm-actions .tj-mini-btn:hover { background: #d4d4d4; }
+  .tj-confirm-actions .tj-mini-btn.danger { color: #b91c1c; border-color: #b91c1c; }
+  .tj-confirm-actions .tj-mini-btn.danger:hover { background: rgba(185,28,28,0.12); }
+
+  @media (max-width: 560px) {
+    #tj-root { padding: 16px; }
+    .tj-cell { min-height: 70px; padding: 5px; }
+    .tj-chip { display: none; }
+    .tj-cell .tj-chips::after { content: attr(data-count); font-size: 10px; color: var(--text-muted); }
+    .tj-weekday { padding: 6px 4px; font-size: 10px; }
+    .tj-panel { width: 100%; }
+  }
+</style>
+<script>
+(function () {
+  const root = document.getElementById('tj-root');
+  const SESSIONS = { asia: 'Asia', london: 'London', ny: 'New York' };
+  const SESSION_LETTER = { asia: 'A', london: 'L', ny: 'N' };
+
+  let activePasteHandler = null;
+
+  let state = {
+    year: new Date().getFullYear(),
+    month: new Date().getMonth(),
+    loading: true,
+    yearData: {},        // { 'YYYY-MM-DD': [tradeMeta, ...] }
+    yearCache: {},        // year -> yearData
+    openDate: null,        // 'YYYY-MM-DD' currently open in panel
+    editingTrade: null,    // draft trade object while adding/editing, or null
+    panelImages: {}        // tradeId -> [dataURL,...] loaded lazily
+  };
+
+  const todayKey = formatKey(new Date());
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function formatKey(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+  function monthName(m) { return ['January','February','March','April','May','June','July','August','September','October','November','December'][m]; }
+  function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  async function loadYear(year) {
+    if (state.yearCache[year]) { state.yearData = state.yearCache[year]; return; }
+    try {
+      const res = await window.storage.get(`journal-data-${year}`, false);
+      const data = res ? JSON.parse(res.value) : {};
+      state.yearCache[year] = data;
+      state.yearData = data;
+    } catch (e) {
+      state.yearCache[year] = {};
+      state.yearData = {};
+    }
+  }
+
+  async function saveYear(year) {
+    try {
+      await window.storage.set(`journal-data-${year}`, JSON.stringify(state.yearCache[year]), false);
+    } catch (e) {
+      console.error('Could not save journal data', e);
+      alert('Could not save — please try again.');
+    }
+  }
+
+  async function loadTradeImages(tradeId) {
+    if (state.panelImages[tradeId]) return state.panelImages[tradeId];
+    try {
+      const res = await window.storage.get(`img-${tradeId}`, false);
+      const imgs = res ? JSON.parse(res.value) : [];
+      state.panelImages[tradeId] = imgs;
+      return imgs;
+    } catch (e) {
+      state.panelImages[tradeId] = [];
+      return [];
+    }
+  }
+
+  async function saveTradeImages(tradeId, images) {
+    state.panelImages[tradeId] = images;
+    try {
+      if (images.length) {
+        await window.storage.set(`img-${tradeId}`, JSON.stringify(images), false);
+      } else {
+        await window.storage.delete(`img-${tradeId}`, false).catch(() => {});
+      }
+    } catch (e) {
+      console.error('Could not save images', e);
+      alert('Could not save screenshots — they may be too large combined. Try removing one or two and saving again.');
+    }
+  }
+
+  function compressImage(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 1600;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          // Try max quality first; step down only if the result is unreasonably large
+          // (keeps 10 images comfortably under the 5MB per-trade storage limit).
+          let quality = 0.92;
+          let dataUrl = canvas.toDataURL('image/jpeg', quality);
+          const TARGET_BYTES = 450 * 1024; // ~450KB ceiling per image at max quality
+          while (dataUrl.length * 0.75 > TARGET_BYTES && quality > 0.6) {
+            quality -= 0.07;
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
+          resolve(dataUrl);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function getMonthTrades() {
+    const out = [];
+    const prefix = `${state.year}-${pad(state.month + 1)}-`;
+    Object.keys(state.yearData).forEach(key => {
+      if (key.startsWith(prefix)) (state.yearData[key] || []).forEach(t => out.push(t));
+    });
+    return out;
+  }
+
+  function computeStats() {
+    const trades = getMonthTrades();
+    const wins = trades.filter(t => t.outcome === 'win').length;
+    const losses = trades.filter(t => t.outcome === 'loss').length;
+    const decided = wins + losses;
+    const winRate = decided ? Math.round((wins / decided) * 100) : null;
+    const netR = trades.reduce((sum, t) => sum + (typeof t.rr === 'number' ? t.rr : 0), 0);
+    const netPnl = trades.reduce((sum, t) => sum + (typeof t.pnl === 'number' ? t.pnl : 0), 0);
+    return { total: trades.length, winRate, netR, netPnl };
+  }
+
+  function buildCells() {
+    const first = new Date(state.year, state.month, 1);
+    const startOffset = first.getDay();
+    const daysInMonth = new Date(state.year, state.month + 1, 0).getDate();
+    const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+    const cells = [];
+    for (let i = 0; i < totalCells; i++) {
+      const dayNum = i - startOffset + 1;
+      const d = new Date(state.year, state.month, dayNum);
+      cells.push({ date: d, key: formatKey(d), inMonth: d.getMonth() === state.month });
+    }
+    return cells;
+  }
+
+  function dayNetR(trades) {
+    if (!trades.length) return null;
+    const has = trades.some(t => typeof t.rr === 'number');
+    if (!has) return null;
+    return trades.reduce((s, t) => s + (typeof t.rr === 'number' ? t.rr : 0), 0);
+  }
+
+  function renderCell(cell) {
+    const trades = state.yearData[cell.key] || [];
+    const isToday = cell.key === todayKey;
+    const visible = trades.slice(0, 3);
+    const extra = trades.length - visible.length;
+    const net = dayNetR(trades);
+
+    const chipsHtml = visible.map(t => `
+      <div class="tj-chip">
+        <span class="sess ${t.session}">${SESSION_LETTER[t.session] || '?'}</span>
+        <span class="dir">${t.direction === 'sell' ? '▼' : '▲'}</span>
+        <span class="pair">${escapeHtml(t.pair || '—')}</span>
+        <span class="outc ${t.outcome}"></span>
+      </div>`).join('');
+
+    return `
+      <div class="tj-cell ${cell.inMonth ? '' : 'adjacent'} ${isToday ? 'today' : ''}" data-key="${cell.key}">
+        <div class="tj-daynum-row"><span class="tj-daynum">${cell.date.getDate()}</span></div>
+        <div class="tj-chips" data-count="${trades.length ? trades.length + ' trade' + (trades.length > 1 ? 's' : '') : ''}">
+          ${chipsHtml}
+          ${extra > 0 ? `<div class="tj-more">+${extra} more</div>` : ''}
+        </div>
+        ${net !== null ? `<div class="tj-daynet ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : ''}${net.toFixed(1)}R</div>` : ''}
+      </div>`;
+  }
+
+  function render() {
+    if (state.loading) {
+      root.innerHTML = `<div class="tj-loading">Loading your journal…</div>`;
+      return;
+    }
+    const cells = buildCells();
+    const weekdayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const stats = computeStats();
+
+    root.innerHTML = `
+      <div class="tj-header">
+        <div>
+          <h2 class="tj-title">${state.year} Trading Journal</h2>
+          <p class="tj-subtitle">Click any day to log a trade</p>
+        </div>
+        <div class="tj-actions">
+          <button class="tj-btn-ghost" id="tj-export">Export data</button>
+        </div>
+      </div>
+
+      <div class="tj-nav">
+        <div class="tj-month-label">${monthName(state.month)} ${state.year}</div>
+        <div class="tj-nav-controls">
+          <button class="tj-nav-btn" id="tj-prev">‹</button>
+          <button class="tj-today-btn" id="tj-today">Today</button>
+          <button class="tj-nav-btn" id="tj-next">›</button>
+        </div>
+      </div>
+
+      <div class="tj-stats">
+        <div><b>${stats.total}</b> trade${stats.total === 1 ? '' : 's'} this month</div>
+        ${stats.winRate !== null ? `<div>Win rate <b>${stats.winRate}%</b></div>` : ''}
+        <div>Net <span class="${stats.netPnl >= 0 ? 'pos' : 'neg'}">${stats.netPnl >= 0 ? '+' : ''}$${stats.netPnl.toFixed(2)}</span> <span class="${stats.netR >= 0 ? 'pos' : 'neg'}">(${stats.netR >= 0 ? '+' : ''}${stats.netR.toFixed(1)}R)</span></div>
+      </div>
+
+      <div class="tj-grid">
+        <div class="tj-weekdays">${weekdayNames.map(w => `<div class="tj-weekday">${w}</div>`).join('')}</div>
+        <div class="tj-rows">
+          ${chunk(cells, 7).map(row => `<div class="tj-row">${row.map(renderCell).join('')}</div>`).join('')}
+        </div>
+      </div>
+
+      <div class="tj-overlay" id="tj-overlay"></div>
+      <div class="tj-panel" id="tj-panel"></div>
+    `;
+
+    root.querySelectorAll('.tj-cell').forEach(el => {
+      el.addEventListener('click', () => openPanel(el.dataset.key));
+    });
+    root.querySelector('#tj-prev').addEventListener('click', () => changeMonth(-1));
+    root.querySelector('#tj-next').addEventListener('click', () => changeMonth(1));
+    root.querySelector('#tj-today').addEventListener('click', goToday);
+    root.querySelector('#tj-export').addEventListener('click', exportData);
+
+    if (state.openDate) renderPanelOpen();
+  }
+
+  function chunk(arr, size) {
+    const out = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  }
+
+  async function changeMonth(delta) {
+    let m = state.month + delta;
+    let y = state.year;
+    if (m < 0) { m = 11; y--; }
+    if (m > 11) { m = 0; y++; }
+    state.month = m;
+    if (y !== state.year) {
+      state.year = y;
+      state.loading = true;
+      render();
+      await loadYear(y);
+      state.loading = false;
+    }
+    render();
+  }
+
+  async function goToday() {
+    const now = new Date();
+    if (now.getFullYear() !== state.year) {
+      state.year = now.getFullYear();
+      state.loading = true;
+      render();
+      await loadYear(state.year);
+      state.loading = false;
+    }
+    state.month = now.getMonth();
+    render();
+  }
+
+  function openPanel(key) {
+    state.openDate = key;
+    state.editingTrade = null;
+    renderPanelOpen();
+  }
+
+  function closePanel() {
+    state.openDate = null;
+    state.editingTrade = null;
+    if (activePasteHandler) { document.removeEventListener('paste', activePasteHandler); activePasteHandler = null; }
+    const overlay = root.querySelector('#tj-overlay');
+    const panel = root.querySelector('#tj-panel');
+    if (overlay) overlay.classList.remove('open');
+    if (panel) panel.classList.remove('open');
+  }
+
+  function dateLabel(key) {
+    const [y, m, d] = key.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
+  function renderPanelOpen() {
+    const overlay = root.querySelector('#tj-overlay');
+    const panel = root.querySelector('#tj-panel');
+    overlay.classList.add('open');
+    panel.classList.add('open');
+    overlay.onclick = closePanel;
+
+    const key = state.openDate;
+    const trades = state.yearData[key] || [];
+
+    if (state.editingTrade) {
+      panel.innerHTML = renderForm(key);
+      wireForm(key);
+      return;
+    }
+
+    panel.innerHTML = `
+      <div class="tj-panel-head">
+        <div>
+          <h3>${dateLabel(key)}</h3>
+          <p>${trades.length} trade${trades.length === 1 ? '' : 's'} logged</p>
+        </div>
+        <button class="tj-close" id="tj-close">×</button>
+      </div>
+      <div class="tj-panel-body" id="tj-panel-body">
+        ${trades.length === 0 ? '<div class="tj-empty">No trades logged for this day yet.</div>' : ''}
+        <div id="tj-trade-list"></div>
+        <button class="tj-add-btn" id="tj-add-trade">+ Add trade</button>
+      </div>
+    `;
+    panel.querySelector('#tj-close').addEventListener('click', closePanel);
+    panel.querySelector('#tj-add-trade').addEventListener('click', () => {
+      state.editingTrade = { id: null, session: 'london', direction: 'buy', pair: '', outcome: 'win', risk: '', rr: '', pnl: '', notes: '', images: [] };
+      renderPanelOpen();
+    });
+
+    const listEl = panel.querySelector('#tj-trade-list');
+    trades.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'tj-trade-card';
+      card.innerHTML = `
+        <div class="tj-trade-card-top">
+          <span class="tj-badge ${t.session}">${SESSIONS[t.session] || t.session}</span>
+          <span class="tj-dir-arrow">${t.direction === 'sell' ? '▼' : '▲'}</span>
+          <span class="tj-pair-name">${escapeHtml(t.pair || 'Untitled')}</span>
+          <span class="tj-badge ${t.outcome}">${t.outcome === 'be' ? 'BE' : t.outcome.toUpperCase()}</span>
+        </div>
+        ${(typeof t.rr === 'number' || typeof t.pnl === 'number' || t.risk) ? `<div class="rr">${[
+          t.risk ? `Risk ${escapeHtml(t.risk)}` : '',
+          typeof t.rr === 'number' ? `${t.rr >= 0 ? '+' : ''}${t.rr}R` : '',
+          typeof t.pnl === 'number' ? `${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)}` : ''
+        ].filter(Boolean).join(' · ')}</div>` : ''}
+        ${t.notes ? `<div class="notes">${escapeHtml(t.notes)}</div>` : ''}
+        <div class="tj-thumbs" data-trade-id="${t.id}"></div>
+        <div class="tj-card-actions">
+          <button class="tj-mini-btn" data-edit="${t.id}">Edit</button>
+          <button class="tj-mini-btn danger" data-del="${t.id}">Delete</button>
+        </div>
+      `;
+      listEl.appendChild(card);
+
+      if (t.imageCount > 0) {
+        const thumbsEl = card.querySelector('.tj-thumbs');
+        loadTradeImages(t.id).then(imgs => {
+          thumbsEl.innerHTML = imgs.map(src => `<img class="tj-thumb" src="${src}">`).join('');
+          thumbsEl.querySelectorAll('img').forEach(img => img.addEventListener('click', () => openLightbox(img.src)));
+        });
+      }
+
+      card.querySelector('[data-edit]').addEventListener('click', async () => {
+        const imgs = t.imageCount > 0 ? await loadTradeImages(t.id) : [];
+        state.editingTrade = { ...t, images: [...imgs] };
+        renderPanelOpen();
+      });
+      card.querySelector('[data-del]').addEventListener('click', () => deleteTrade(key, t.id));
+    });
+  }
+
+  function renderForm(key) {
+    const tr = state.editingTrade;
+    return `
+      <div class="tj-panel-head">
+        <div>
+          <h3>${tr.id ? 'Edit trade' : 'Add trade'}</h3>
+          <p>${dateLabel(key)}</p>
+        </div>
+        <button class="tj-close" id="tj-close">×</button>
+      </div>
+      <div class="tj-panel-body">
+        <div class="tj-form-group">
+          <label class="tj-label">Session</label>
+          <div class="tj-pills" id="tj-session-pills">
+            ${Object.keys(SESSIONS).map(s => `<button type="button" class="tj-pill session-${s} ${tr.session === s ? 'active' : ''}" data-session="${s}">${SESSIONS[s]}</button>`).join('')}
+          </div>
+        </div>
+        <div class="tj-form-group">
+          <label class="tj-label">Direction</label>
+          <div class="tj-pills" id="tj-dir-pills">
+            <button type="button" class="tj-pill dir-buy ${tr.direction === 'buy' ? 'active' : ''}" data-dir="buy">▲ Buy</button>
+            <button type="button" class="tj-pill dir-sell ${tr.direction === 'sell' ? 'active' : ''}" data-dir="sell">▼ Sell</button>
+          </div>
+        </div>
+        <div class="tj-form-group">
+          <label class="tj-label">Pair / instrument</label>
+          <input class="tj-input" id="tj-pair" placeholder="e.g. EURUSD, BTCUSD" value="${escapeHtml(tr.pair)}">
+        </div>
+        <div class="tj-form-group">
+          <label class="tj-label">Outcome</label>
+          <div class="tj-pills" id="tj-outc-pills">
+            <button type="button" class="tj-pill outc-win ${tr.outcome === 'win' ? 'active' : ''}" data-outc="win">Win</button>
+            <button type="button" class="tj-pill outc-loss ${tr.outcome === 'loss' ? 'active' : ''}" data-outc="loss">Loss</button>
+            <button type="button" class="tj-pill outc-be ${tr.outcome === 'be' ? 'active' : ''}" data-outc="be">Breakeven</button>
+          </div>
+        </div>
+        <div class="tj-form-row3">
+          <div class="tj-form-group">
+            <label class="tj-label">Risk</label>
+            <input class="tj-input" id="tj-risk" placeholder="e.g. 1% or $200" value="${escapeHtml(tr.risk || '')}">
+          </div>
+          <div class="tj-form-group">
+            <label class="tj-label">R:R</label>
+            <input class="tj-input" id="tj-rr" type="number" step="0.1" placeholder="e.g. 2.5" value="${tr.rr === '' || tr.rr === null || tr.rr === undefined ? '' : tr.rr}">
+          </div>
+          <div class="tj-form-group">
+            <label class="tj-label">P&amp;L ($)</label>
+            <input class="tj-input" id="tj-pnl" type="number" step="0.01" placeholder="0.00" value="${tr.pnl === '' || tr.pnl === null || tr.pnl === undefined ? '' : tr.pnl}">
+          </div>
+        </div>
+        <div class="tj-form-group">
+          <label class="tj-label">Notes</label>
+          <textarea class="tj-textarea" id="tj-notes" placeholder="Setup, mistakes, what you'd do differently…">${escapeHtml(tr.notes)}</textarea>
+        </div>
+        <div class="tj-form-group">
+          <label class="tj-label">Screenshots (up to 10, compressed) — click + or paste an image</label>
+          <div class="tj-imgrow" id="tj-imgrow">
+            ${tr.images.map((src, i) => `<div class="tj-imgwrap" data-i="${i}"><img src="${src}"><button class="rm" data-rm="${i}">×</button></div>`).join('')}
+            ${tr.images.length < 10 ? `<label class="tj-upload-btn">+<input type="file" id="tj-imginput" accept="image/*" multiple style="display:none"></label>` : ''}
+          </div>
+        </div>
+        <div class="tj-form-actions">
+          <button class="tj-save-btn" id="tj-save">Save trade</button>
+          <button class="tj-cancel-btn" id="tj-cancel">Cancel</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function wireForm(key) {
+    const panel = root.querySelector('#tj-panel');
+    panel.querySelector('#tj-close').addEventListener('click', closePanel);
+    panel.querySelector('#tj-cancel').addEventListener('click', () => { state.editingTrade = null; renderPanelOpen(); });
+
+    panel.querySelectorAll('[data-session]').forEach(btn => btn.addEventListener('click', () => {
+      state.editingTrade.session = btn.dataset.session;
+      renderPanelOpen();
+    }));
+    panel.querySelectorAll('[data-dir]').forEach(btn => btn.addEventListener('click', () => {
+      state.editingTrade.direction = btn.dataset.dir;
+      renderPanelOpen();
+    }));
+    panel.querySelectorAll('[data-outc]').forEach(btn => btn.addEventListener('click', () => {
+      state.editingTrade.outcome = btn.dataset.outc;
+      renderPanelOpen();
+    }));
+
+    const riskEl = panel.querySelector('#tj-risk');
+    const pairEl = panel.querySelector('#tj-pair');
+    const rrEl = panel.querySelector('#tj-rr');
+    const pnlEl = panel.querySelector('#tj-pnl');
+    const notesEl = panel.querySelector('#tj-notes');
+    riskEl.addEventListener('input', () => state.editingTrade.risk = riskEl.value);
+    pairEl.addEventListener('input', () => state.editingTrade.pair = pairEl.value);
+    rrEl.addEventListener('input', () => state.editingTrade.rr = rrEl.value);
+    pnlEl.addEventListener('input', () => state.editingTrade.pnl = pnlEl.value);
+    notesEl.addEventListener('input', () => state.editingTrade.notes = notesEl.value);
+    // keep focus usable after re-render on pill clicks: focus pair field by default only on first open
+    pairEl.focus();
+    pairEl.selectionStart = pairEl.value.length;
+
+    const imgInput = panel.querySelector('#tj-imginput');
+    if (imgInput) {
+      imgInput.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files).slice(0, 10 - state.editingTrade.images.length);
+        for (const f of files) {
+          try {
+            const dataUrl = await compressImage(f);
+            state.editingTrade.images.push(dataUrl);
+          } catch (err) { console.error(err); }
+        }
+        renderPanelOpen();
+      });
+    }
+
+    if (activePasteHandler) document.removeEventListener('paste', activePasteHandler);
+    const pasteHandler = async (e) => {
+      if (!state.editingTrade) return;
+      const items = Array.from(e.clipboardData ? e.clipboardData.items : []);
+      const imageItems = items.filter(it => it.type && it.type.startsWith('image/'));
+      if (!imageItems.length) return;
+      e.preventDefault();
+      const files = imageItems.map(it => it.getAsFile()).filter(Boolean).slice(0, 10 - state.editingTrade.images.length);
+      for (const f of files) {
+        try {
+          const dataUrl = await compressImage(f);
+          state.editingTrade.images.push(dataUrl);
+        } catch (err) { console.error(err); }
+      }
+      if (files.length) renderPanelOpen();
+    };
+    document.addEventListener('paste', pasteHandler);
+    activePasteHandler = pasteHandler;
+    panel.querySelectorAll('[data-rm]').forEach(btn => btn.addEventListener('click', () => {
+      state.editingTrade.images.splice(Number(btn.dataset.rm), 1);
+      renderPanelOpen();
+    }));
+
+    panel.querySelector('#tj-save').addEventListener('click', () => saveTrade(key));
+  }
+
+  async function saveTrade(key) {
+    const tr = state.editingTrade;
+    const id = tr.id || `t_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const rrVal = tr.rr === '' || tr.rr === null || tr.rr === undefined ? null : parseFloat(tr.rr);
+    const pnlVal = tr.pnl === '' || tr.pnl === null || tr.pnl === undefined ? null : parseFloat(tr.pnl);
+    const meta = {
+      id, session: tr.session, direction: tr.direction,
+      pair: tr.pair.trim(), outcome: tr.outcome,
+      risk: (tr.risk || '').trim(),
+      rr: (rrVal === null || isNaN(rrVal)) ? null : rrVal,
+      pnl: (pnlVal === null || isNaN(pnlVal)) ? null : pnlVal,
+      notes: tr.notes.trim(), imageCount: tr.images.length
+    };
+
+    const list = state.yearData[key] ? [...state.yearData[key]] : [];
+    const idx = list.findIndex(t => t.id === id);
+    if (idx >= 0) list[idx] = meta; else list.push(meta);
+    state.yearData[key] = list;
+    state.yearCache[state.year] = state.yearData;
+
+    await saveYear(state.year);
+    await saveTradeImages(id, tr.images);
+
+    state.editingTrade = null;
+    render();
+    openPanel(key);
+  }
+
+  async function deleteTrade(key, id) {
+    const ok = await confirmDialog('Delete this trade entry?', 'This can\'t be undone.');
+    if (!ok) return;
+    state.yearData[key] = (state.yearData[key] || []).filter(t => t.id !== id);
+    if (state.yearData[key].length === 0) delete state.yearData[key];
+    state.yearCache[state.year] = state.yearData;
+    await saveYear(state.year);
+    try { await window.storage.delete(`img-${id}`, false); } catch (e) {}
+    delete state.panelImages[id];
+    render();
+    openPanel(key);
+  }
+
+  function confirmDialog(title, body) {
+    return new Promise((resolve) => {
+      const box = document.createElement('div');
+      box.className = 'tj-confirm-overlay';
+      box.innerHTML = `
+        <div class="tj-confirm-box">
+          <div class="tj-confirm-title">${escapeHtml(title)}</div>
+          ${body ? `<div class="tj-confirm-body">${escapeHtml(body)}</div>` : ''}
+          <div class="tj-confirm-actions">
+            <button class="tj-mini-btn" id="tj-confirm-cancel">Cancel</button>
+            <button class="tj-mini-btn danger" id="tj-confirm-ok">Delete</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(box);
+      const cleanup = (result) => { box.remove(); resolve(result); };
+      box.querySelector('#tj-confirm-cancel').addEventListener('click', () => cleanup(false));
+      box.querySelector('#tj-confirm-ok').addEventListener('click', () => cleanup(true));
+      box.addEventListener('click', (e) => { if (e.target === box) cleanup(false); });
+    });
+  }
+
+  function openLightbox(src) {
+    const box = document.createElement('div');
+    box.className = 'tj-lightbox';
+    box.innerHTML = `<button class="tj-lightbox-close">×</button><img src="${src}">`;
+    box.addEventListener('click', (e) => { if (e.target === box || e.target.classList.contains('tj-lightbox-close')) box.remove(); });
+    document.body.appendChild(box);
+  }
+
+  function exportData() {
+    const blob = new Blob([JSON.stringify(state.yearData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `trading-journal-${state.year}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && state.openDate) {
+      if (state.editingTrade) { state.editingTrade = null; renderPanelOpen(); }
+      else closePanel();
+    }
+  });
+
+  async function init() {
+    render();
+    await loadYear(state.year);
+    state.loading = false;
+    render();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
